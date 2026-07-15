@@ -32,6 +32,9 @@ public class PracticeAttempt {
 
     private double accuracy;
 
+    /** 이 목표 문장이 속한 소리 패턴 (예: 겹받침/된소리/긴문장). 리포트의 소리연습 집계에 쓰임. */
+    private String pattern;
+
     private Long comparedToAttemptId; // 이전 시도와 비교할 때 참조 (nullable)
 
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -40,12 +43,13 @@ public class PracticeAttempt {
     }
 
     public PracticeAttempt(User child, String targetText, String audioFileUrl,
-                            String sttResult, double accuracy, Long comparedToAttemptId) {
+                            String sttResult, double accuracy, String pattern, Long comparedToAttemptId) {
         this.child = child;
         this.targetText = targetText;
         this.audioFileUrl = audioFileUrl;
         this.sttResult = sttResult;
         this.accuracy = accuracy;
+        this.pattern = pattern;
         this.comparedToAttemptId = comparedToAttemptId;
     }
 
@@ -71,6 +75,10 @@ public class PracticeAttempt {
 
     public double getAccuracy() {
         return accuracy;
+    }
+
+    public String getPattern() {
+        return pattern;
     }
 
     public Long getComparedToAttemptId() {

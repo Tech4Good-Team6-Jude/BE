@@ -29,9 +29,9 @@ public class User {
     private String name;
 
     @Enumerated(EnumType.STRING)
-    private UserRole role;
+    private UserRole role; //  부모인지 학생인지
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = LocalDateTime.now(); // 계정 생성 시간
 
     protected User() {
     }

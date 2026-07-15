@@ -31,8 +31,10 @@ file:
     base-path: ./uploads
 
 # 멘토님 구조 기준: 우리 서버(Service Server, /api/v1)가 별도 Inference Server(/internal/v1)를
-# HTTP로 호출하는 구조. AI팀 서버 주소/실제 계약이 확정되면 아래 base-url만 바꾸면 됨.
-# 지금은 InferenceClient가 MockInferenceClient로 동작해서 이 값은 아직 안 쓰임.
+# HTTP로 호출하는 구조.
+# provider: mock(기본값) -> MockInferenceClient 사용, http -> HttpInferenceClient가 실제 AI 서버를 호출.
+# 로컬에서 AI 서버(uvicorn app.main:app --port 8001)를 같이 띄운 뒤 http로 바꿔서 테스트하면 됨.
 inference:
+  provider: http
   service:
-    base-url: http://localhost:9000 # TODO: AI팀 Inference Server 주소로 교체
+    base-url: http://localhost:8001/internal/v1

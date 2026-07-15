@@ -157,19 +157,221 @@ AI팀 서버(`/internal/v1`) 계약이 확정되면 `InferenceClient`의 새 구
 
 ## AI팀에게
 
-`/internal/v1`에 아래 6개 기능이 필요합니다. 실제 엔드포인트 경로/요청·응답 형식이 정해지면
-`InferenceClient` 구현체만 교체할 예정이니 알려주세요.
+`/internal/v1`에 아래 기능이 필요합니다. 실제 엔드포인트 경로가 정해지면 `InferenceClient`
+구현체(현재 `MockInferenceClient`)만 새 구현체로 교체할 예정이라, Service Server 쪽 컨트롤러/DTO는
+안 건드려도 됩니다. 파일(이미지/오디오)이 껴있는 두 기능(OCR, 발음평가)만 `multipart/form-data`이고
+나머지는 JSON입니다.
 
-| 기능 | 현재 Mock 인터페이스 |
-|---|---|
-| OCR | `ocr(MultipartFile file) -> String` |
-| 문장 단순화 | `simplify(String originalText) -> String` |
-| TTS | `tts(String text) -> { audioUrl, words[{word,startMs,endMs}] }` |
-| STT | `stt(MultipartFile audioFile) -> String` |
-| 오류 유형 분석 | `analyzeErrorType(List<String> texts) -> { errorType, description }` |
-| 발음·유창성 평가 | `evaluatePronunciation(MultipartFile audio, String targetText) -> { sttText, accuracy, misreadWords[] }` |
+### 기능 1 · OCR (텍스트 캡처)
 
-**특히 TTS는 word-level timestamp 지원 여부부터 확인 필요** (A모드 하이라이트의 전제조건).
+호출 시점: `POST /api/v1/captures` (사진 업로드) 처리 중
+
+**AI 모델이 받아야 할 값** — `multipart/form-data`
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `file` | File | O | 촬영/업로드된 이미지 파일 |
+
+**AI 모델이 줘야 할 값**
+```json
+["옛날 옛적, 넓적한 바위 위에 앉아 있던 개구리가", "훌쩍 뛰어올랐어요.", "연못 건너편에는 낡은 나무 다리가 놓여 있었죠."]
+```
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| (배열 원소) | String | OCR로 인식해서 문장 단위로 분할한 텍스트 하나 |
+
+---
+
+### 기능 2 · 문장 단순화
+
+호출 시점: `POST /api/v1/sentences/{id}/explain?level=1~3`(캡처 흐름) 또는 `POST /api/v1/stuck-sentences/{id}/explain?level=1~3`(도서관 L5 반복학습 "이해" 탭) — 재설명 요청. level=0이면 원문 그대로라 이 기능은 호출 안 하고 TTS만 호출
+
+**AI 모델이 받아야 할 값**
+```json
+{
+  "originalText": "참다못한 아기 오리는 집을 떠났어요.",
+  "level": 2
+}
+```
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `originalText` | String | O | 원본 문장 |
+| `level` | Integer | O | 1~3, 클수록 더 쉬운 문장 |
+
+**AI 모델이 줘야 할 값**
+```json
+{
+  "simplifiedText": "너무 힘든 아기 오리는 집을 나갔어요.",
+  "keyWords": [
+    { "word": "참다못한", "meaning": "더 참을 수 없다는 뜻이에요" }
+  ]
+}
+```
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `simplifiedText` | String | 지정한 level 난이도로 쉬워진 문장 |
+| `keyWords` | List\<Object\> | 원문에서 이 재설명이 필요했던 근거가 된 핵심 단어(들) + 그 뜻. `word`는 FE가 원문 표시 시 하이라이트용, `meaning`은 "'{word}'는 ~라는 뜻이에요" 같은 보조 설명용 (기능명세서 2.2.2 "근거 단서 제공") |
+| `keyWords[].word` | String | 근거가 된 단어 |
+| `keyWords[].meaning` | String | 그 단어의 뜻 풀이 |
+
+---
+
+### 기능 3 · TTS
+
+호출 시점: 재설명 응답 음성 생성 시(`/explain`), 유사문장 세트의 문장 하나하나마다(`/similar-sets`, `/stuck-sentences/{id}/similar-sets`)
+
+**AI 모델이 받아야 할 값**
+```json
+{ "text": "아주 쉬운 문장으로 바뀐 텍스트입니다." }
+```
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `text` | String | O | 읽어줄 텍스트 |
+
+**AI 모델이 줘야 할 값**
+```json
+{
+  "audioUrl": "https://example.com/audio/xxxx.mp3",
+  "words": [
+    { "word": "아주", "startMs": 0, "endMs": 300 },
+    { "word": "쉬운", "startMs": 300, "endMs": 600 }
+  ]
+}
+```
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `audioUrl` | String | 생성된 낭독 음성 파일 URL |
+| `words` | List\<Object\> | 단어별 타임스탬프 (하이라이트 동기화용). **word-level timestamp 지원 여부부터 확인 필요** — A모드 하이라이트 기능의 전제조건 |
+| `words[].word` | String | 단어 |
+| `words[].startMs` / `endMs` | Integer | 이 단어가 재생되는 구간(ms) |
+
+---
+
+### 기능 4 · 단어 풀이
+
+호출 시점: `GET /api/v1/words/{word}/card` (문장 내 단어를 탭했을 때)
+
+**AI 모델이 받아야 할 값**
+```json
+{ "word": "사과" }
+```
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `word` | String | O | 뜻을 찾을 단어 |
+
+**AI 모델이 줘야 할 값**
+```json
+{
+  "word": "사과",
+  "meaning": "새콤달콤한 빨간 과일",
+  "example": "사과 하나를 맛있게 먹었어요.",
+  "audioUrl": "https://example.com/audio/사과.mp3"
+}
+```
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `word` | String | 요청받은 단어 (그대로 반환) |
+| `meaning` | String | 뜻 풀이 |
+| `example` | String | 예문 |
+| `audioUrl` | String | 단어 발음 오디오 URL |
+
+---
+
+### 기능 5 · 발음·유창성 평가
+
+호출 시점: `POST /api/v1/practice/attempts` (발음 연습 녹음 제출)
+
+**AI 모델이 받아야 할 값** — `multipart/form-data`
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `audio` | File | O | 아이가 녹음한 음성 파일 |
+| `targetText` | String | O | 읽어야 했던 목표 문장 |
+
+**AI 모델이 줘야 할 값**
+```json
+{
+  "sttText": "나비 구룸 하늘",
+  "accuracy": 0.82,
+  "mismatches": [
+    { "expectedWord": "구름", "heardAs": "구룸", "correctionType": "받침", "modelAudioUrl": "https://example.com/audio/구름.mp3" }
+  ],
+  "pattern": "겹받침"
+}
+```
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `sttText` | String | 녹음을 인식한 텍스트 |
+| `accuracy` | Double | 정확도 (0~1) |
+| `mismatches` | List\<Object\> | 목표 문장과 다르게 발음된 구간 목록 |
+| `mismatches[].expectedWord` | String | 원래 있어야 할 단어 |
+| `mismatches[].heardAs` | String | 실제로 들린 발음(텍스트화) |
+| `mismatches[].correctionType` | String | 오류 유형 (예: "받침"/"발음"/"띄어읽기") |
+| `mismatches[].modelAudioUrl` | String | 이 단어만 정확하게 발음한 시범 음성 URL |
+| `pattern` | String | 이 문장이 속한 소리 패턴 ("겹받침"/"된소리"/"긴문장" 등) |
+
+---
+
+### 기능 6 · 유사문장 생성
+
+호출 시점: `POST /api/v1/sentences/{id}/similar-sets`(사진 캡처 흐름), `POST /api/v1/stuck-sentences/{id}/similar-sets`(도서관 흐름) — 둘 다 막힌 문장 기반 반복학습 세트를 만들 때
+
+**AI 모델이 받아야 할 값**
+```json
+{
+  "sourceText": "널찍한 바위에 앉았어요.",
+  "count": 4,
+  "difficulty": "보통"
+}
+```
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `sourceText` | String | O | 막힌 원문 |
+| `count` | Integer | O | 생성할 유사문장 개수 (보통 3~5) |
+| `difficulty` | String | O | "쉬움" / "보통" |
+
+**AI 모델이 줘야 할 값**
+```json
+{
+  "pattern": "겹받침",
+  "sentences": ["넓적한 돌을 밟았다.", "책을 읽고 앉았다.", "값이 너무 비싸다.", "여덟 개를 세었다."]
+}
+```
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `pattern` | String | sourceText에서 뽑아낸 공통 소리 패턴명 |
+| `sentences` | List\<String\> | 같은 패턴의 유사문장 목록 (count개) |
+
+---
+
+### 기능 7 · 문장 패턴 분석
+
+호출 시점: `POST /api/v1/books/sentences/{id}/stuck` (도서관 읽기 중 문장을 "막힘"으로 표시할 때)
+
+**AI 모델이 받아야 할 값**
+```json
+{ "text": "널찍한 바위에 앉았어요." }
+```
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `text` | String | O | 막힌 문장 텍스트 |
+
+**AI 모델이 줘야 할 값**
+```json
+{ "pattern": "겹받침" }
+```
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `pattern` | String | 소리 패턴 태그 — "겹받침" / "된소리" / "긴문장" / "일반" |
+
+---
+
+### 참고: 선언만 돼 있고 아직 어디서도 호출 안 되는 기능 (우선순위 낮음)
+
+| 기능 | 현재 Mock 인터페이스 | 비고 |
+|---|---|---|
+| STT(단독) | `stt(MultipartFile audioFile) -> String` | 발음평가(기능 5)가 STT 결과(sttText)까지 같이 반환해서 지금은 단독 호출 지점이 없음 |
+| 오류 유형 분석 | `analyzeErrorType(List<String> texts) -> { errorType, description }` | 예전 진단(B모드) 화면용으로 설계됐던 것으로 보이는데 현재 컨트롤러/서비스에 연결 안 돼 있음 |
 
 ## FE팀에게
 
