@@ -1,0 +1,1205 @@
+openapi: 3.0.1
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+- url: http://localhost:8080
+  description: Generated server url
+paths:
+  /api/v1/stuck-sentences/{stuckSentenceId}/similar-sets:
+    post:
+      tags:
+      - similar-sentence-controller
+      operationId: createSetForStuckSentence
+      parameters:
+      - name: stuckSentenceId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: count
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: difficulty
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SimilarSetResponse'
+  /api/v1/stuck-sentences/{stuckSentenceId}/explain:
+    post:
+      tags:
+      - explain-controller
+      operationId: explainStuckSentence
+      parameters:
+      - name: stuckSentenceId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: level
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ExplainResponse'
+  /api/v1/sentences/{sentenceId}/similar-sets:
+    post:
+      tags:
+      - similar-sentence-controller
+      operationId: createSet
+      parameters:
+      - name: sentenceId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: count
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: difficulty
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SimilarSetResponse'
+  /api/v1/sentences/{sentenceId}/explain:
+    post:
+      tags:
+      - explain-controller
+      operationId: explain
+      parameters:
+      - name: sentenceId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: level
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ExplainResponse'
+  /api/v1/reports/{reportId}/stamp:
+    post:
+      tags:
+      - report-controller
+      operationId: sendStamp
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+  /api/v1/practice/attempts:
+    post:
+      tags:
+      - practice-controller
+      operationId: submit
+      parameters:
+      - name: childId
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: targetText
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: compareToAttemptId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+              - audio
+              type: object
+              properties:
+                audio:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PracticeAttemptResponse'
+  /api/v1/hatch-rewards/{hatchRewardId}/claim:
+    post:
+      tags:
+      - reward-controller
+      operationId: claim
+      parameters:
+      - name: hatchRewardId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/HatchRewardSummary'
+  /api/v1/games/word-match/pairs:
+    get:
+      tags:
+      - game-controller
+      operationId: listPairs
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WordMatchPairSummary'
+    post:
+      tags:
+      - game-controller
+      operationId: createPair
+      parameters:
+      - name: word
+        in: query
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+              - audio
+              type: object
+              properties:
+                audio:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/WordMatchPairSummary'
+  /api/v1/children/{childId}/progress/reward-selection:
+    post:
+      tags:
+      - progress-controller
+      operationId: selectReward
+      parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RewardSelectionRequest'
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ProgressResponse'
+  /api/v1/captures:
+    post:
+      tags:
+      - capture-controller
+      operationId: createCapture
+      parameters:
+      - name: childId
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+              - file
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/CaptureResponse'
+  /api/v1/books/sentences/{sentenceId}/stuck:
+    post:
+      tags:
+      - book-controller
+      operationId: toggleStuck
+      parameters:
+      - name: sentenceId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkStuckRequest'
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MarkStuckResponse'
+  /api/v1/similar-sets/{setId}/items/{itemId}/complete:
+    patch:
+      tags:
+      - similar-sentence-controller
+      operationId: completeItem
+      parameters:
+      - name: setId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SimilarSetResponse'
+  /api/v1/captures/sentences/{sentenceId}:
+    patch:
+      tags:
+      - capture-controller
+      operationId: editSentence
+      parameters:
+      - name: sentenceId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditSentenceRequest'
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/CaptureSentenceSummary'
+  /api/v1/words/{word}/card:
+    get:
+      tags:
+      - explain-controller
+      operationId: getWordCard
+      parameters:
+      - name: word
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/WordCardResponse'
+  /api/v1/similar-sets/{setId}:
+    get:
+      tags:
+      - similar-sentence-controller
+      operationId: getSet
+      parameters:
+      - name: setId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SimilarSetResponse'
+  /api/v1/rewards/catalog:
+    get:
+      tags:
+      - reward-controller
+      operationId: getCatalog
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RewardCatalogItem'
+  /api/v1/reports/{reportId}:
+    get:
+      tags:
+      - report-controller
+      operationId: getReport
+      parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+  /api/v1/health:
+    get:
+      tags:
+      - health-controller
+      operationId: health
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: string
+  /api/v1/games/word-match/round:
+    get:
+      tags:
+      - game-controller
+      operationId: getRound
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WordMatchPairSummary'
+  /api/v1/children/{childId}:
+    get:
+      tags:
+      - user-controller
+      operationId: getChildProfile
+      parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChildProfileResponse'
+  /api/v1/children/{childId}/reports:
+    get:
+      tags:
+      - report-controller
+      operationId: listReports
+      parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReportSummary'
+  /api/v1/children/{childId}/report:
+    get:
+      tags:
+      - report-controller
+      operationId: getLatestReport
+      parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+  /api/v1/children/{childId}/report/child:
+    get:
+      tags:
+      - report-controller
+      operationId: getChildReport
+      parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChildReportResponse'
+  /api/v1/children/{childId}/progress:
+    get:
+      tags:
+      - progress-controller
+      operationId: getProgress
+      parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ProgressResponse'
+  /api/v1/children/{childId}/hatch-rewards:
+    get:
+      tags:
+      - reward-controller
+      operationId: listHatchRewards
+      parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HatchRewardSummary'
+  /api/v1/books:
+    get:
+      tags:
+      - book-controller
+      operationId: listBooks
+      parameters:
+      - name: childId
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookSummary'
+  /api/v1/books/{bookId}:
+    get:
+      tags:
+      - book-controller
+      operationId: getBook
+      parameters:
+      - name: bookId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: childId
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BookSummary'
+  /api/v1/books/{bookId}/stuck-sentences:
+    get:
+      tags:
+      - book-controller
+      operationId: listStuckSentences
+      parameters:
+      - name: bookId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: childId
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StuckSentenceSummary'
+  /api/v1/books/{bookId}/pages/{pageIndex}:
+    get:
+      tags:
+      - book-controller
+      operationId: getPage
+      parameters:
+      - name: bookId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: pageIndex
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      - name: childId
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BookPageResponse'
+  /api/v1/books/{bookId}/completion-summary:
+    get:
+      tags:
+      - book-controller
+      operationId: getCompletionSummary
+      parameters:
+      - name: bookId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: childId
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BookCompletionSummary'
+components:
+  schemas:
+    EggRewardInfo:
+      type: object
+      properties:
+        eggsGained:
+          type: integer
+          format: int32
+        currentHatchProgress:
+          type: integer
+          format: int32
+        eggsPerHatch:
+          type: integer
+          format: int32
+        justHatched:
+          type: boolean
+        hatchReward:
+          $ref: '#/components/schemas/HatchRewardSummary'
+    HatchRewardSummary:
+      type: object
+      properties:
+        hatchRewardId:
+          type: integer
+          format: int64
+        rewardCode:
+          type: string
+        brand:
+          type: string
+        name:
+          type: string
+        imageUrl:
+          type: string
+        issuedAt:
+          type: string
+          format: date-time
+        validUntil:
+          type: string
+          format: date-time
+        sentByGuardian:
+          type: boolean
+        claimed:
+          type: boolean
+        claimedAt:
+          type: string
+          format: date-time
+    SimilarSentenceSummary:
+      type: object
+      properties:
+        itemId:
+          type: integer
+          format: int64
+        orderIndex:
+          type: integer
+          format: int32
+        text:
+          type: string
+        audioUrl:
+          type: string
+        completed:
+          type: boolean
+    SimilarSetResponse:
+      type: object
+      properties:
+        setId:
+          type: integer
+          format: int64
+        sourceSentenceId:
+          type: integer
+          format: int64
+        sourceType:
+          type: string
+        pattern:
+          type: string
+        difficulty:
+          type: string
+        sentences:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimilarSentenceSummary'
+        eggReward:
+          $ref: '#/components/schemas/EggRewardInfo'
+    ExplainResponse:
+      type: object
+      properties:
+        queryId:
+          type: integer
+          format: int64
+        sentenceId:
+          type: integer
+          format: int64
+        level:
+          type: integer
+          format: int32
+        originalText:
+          type: string
+        explainedText:
+          type: string
+        keyWords:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyWordDetail'
+        audioUrl:
+          type: string
+        words:
+          type: array
+          items:
+            $ref: '#/components/schemas/WordTimestamp'
+    KeyWordDetail:
+      type: object
+      properties:
+        word:
+          type: string
+        meaning:
+          type: string
+    WordTimestamp:
+      type: object
+      properties:
+        word:
+          type: string
+        startMs:
+          type: integer
+          format: int64
+        endMs:
+          type: integer
+          format: int64
+    MismatchSegment:
+      type: object
+      properties:
+        expectedWord:
+          type: string
+        heardAs:
+          type: string
+        correctionType:
+          type: string
+        modelAudioUrl:
+          type: string
+    PracticeAttemptResponse:
+      type: object
+      properties:
+        attemptId:
+          type: integer
+          format: int64
+        sttText:
+          type: string
+        accuracy:
+          type: number
+          format: double
+        passed:
+          type: boolean
+        mismatches:
+          type: array
+          items:
+            $ref: '#/components/schemas/MismatchSegment'
+        feedback:
+          type: string
+        eggReward:
+          $ref: '#/components/schemas/EggRewardInfo'
+    WordMatchPairSummary:
+      type: object
+      properties:
+        pairId:
+          type: integer
+          format: int64
+        word:
+          type: string
+        audioUrl:
+          type: string
+    RewardSelectionRequest:
+      type: object
+      properties:
+        guardianId:
+          type: integer
+          format: int64
+        rewardCode:
+          type: string
+    ProgressResponse:
+      type: object
+      properties:
+        eggCount:
+          type: integer
+          format: int32
+        currentHatchProgress:
+          type: integer
+          format: int32
+        totalHatchesCompleted:
+          type: integer
+          format: int32
+        eggsPerHatch:
+          type: integer
+          format: int32
+        stampCount:
+          type: integer
+          format: int32
+        averageAccuracy:
+          type: number
+          format: double
+        selectedRewardCode:
+          type: string
+    CaptureResponse:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+          format: int64
+        imageUrl:
+          type: string
+        sentences:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaptureSentenceSummary'
+    CaptureSentenceSummary:
+      type: object
+      properties:
+        sentenceId:
+          type: integer
+          format: int64
+        orderIndex:
+          type: integer
+          format: int32
+        text:
+          type: string
+    MarkStuckRequest:
+      type: object
+      properties:
+        childId:
+          type: integer
+          format: int64
+    MarkStuckResponse:
+      type: object
+      properties:
+        stuck:
+          type: boolean
+        stuckSentence:
+          $ref: '#/components/schemas/StuckSentenceSummary'
+    StuckSentenceSummary:
+      type: object
+      properties:
+        stuckSentenceId:
+          type: integer
+          format: int64
+        sentenceId:
+          type: integer
+          format: int64
+        text:
+          type: string
+        pattern:
+          type: string
+        resolved:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    EditSentenceRequest:
+      type: object
+      properties:
+        text:
+          type: string
+    WordCardResponse:
+      type: object
+      properties:
+        word:
+          type: string
+        meaning:
+          type: string
+        example:
+          type: string
+        audioUrl:
+          type: string
+    RewardCatalogItem:
+      type: object
+      properties:
+        code:
+          type: string
+        brand:
+          type: string
+        name:
+          type: string
+        imageUrl:
+          type: string
+        validDays:
+          type: integer
+          format: int32
+    ErrorPatternSummary:
+      type: object
+      properties:
+        errorType:
+          type: string
+        occurrenceCount:
+          type: integer
+          format: int32
+    PracticeAttemptSummary:
+      type: object
+      properties:
+        attemptId:
+          type: integer
+          format: int64
+        targetText:
+          type: string
+        accuracy:
+          type: number
+          format: double
+        createdAt:
+          type: string
+          format: date-time
+    PronunciationComparison:
+      type: object
+      properties:
+        targetText:
+          type: string
+        previousAudioUrl:
+          type: string
+        currentAudioUrl:
+          type: string
+    ReportResponse:
+      type: object
+      properties:
+        reportId:
+          type: integer
+          format: int64
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        highlight:
+          type: string
+        summary:
+          type: string
+        accuracy:
+          type: number
+          format: double
+        previousAccuracy:
+          type: number
+          format: double
+        accuracyDeltaPercentagePoint:
+          type: number
+          format: double
+        learningSessionCount:
+          type: integer
+          format: int32
+        additionalSentenceCount:
+          type: integer
+          format: int32
+        weeklyEggGain:
+          type: integer
+          format: int32
+        attempts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PracticeAttemptSummary'
+        errorPatterns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorPatternSummary'
+        pronunciationComparison:
+          $ref: '#/components/schemas/PronunciationComparison'
+        stampSent:
+          type: boolean
+    ChildProfileResponse:
+      type: object
+      properties:
+        childId:
+          type: integer
+          format: int64
+        name:
+          type: string
+    ReportSummary:
+      type: object
+      properties:
+        reportId:
+          type: integer
+          format: int64
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        highlight:
+          type: string
+        stampSent:
+          type: boolean
+    ChildReportResponse:
+      type: object
+      properties:
+        sentencesRead:
+          type: integer
+          format: int32
+        accuracy:
+          type: number
+          format: double
+        previousAccuracy:
+          type: number
+          format: double
+        accuracyDeltaPercentagePoint:
+          type: number
+          format: double
+        streakDays:
+          type: integer
+          format: int32
+        eggCount:
+          type: integer
+          format: int32
+        currentHatchProgress:
+          type: integer
+          format: int32
+        eggsPerHatch:
+          type: integer
+          format: int32
+        patternCounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorPatternSummary'
+        weeklyCheckIns:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayCheckIn'
+        encouragementMessage:
+          type: string
+    DayCheckIn:
+      type: object
+      properties:
+        label:
+          type: string
+        checked:
+          type: boolean
+    BookSummary:
+      type: object
+      properties:
+        bookId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        author:
+          type: string
+        coverImageUrl:
+          type: string
+        difficulty:
+          type: string
+        totalPages:
+          type: integer
+          format: int32
+        estimatedMinutes:
+          type: integer
+          format: int32
+        stuckSentenceCount:
+          type: integer
+          format: int32
+    BookPageResponse:
+      type: object
+      properties:
+        bookId:
+          type: integer
+          format: int64
+        pageIndex:
+          type: integer
+          format: int32
+        totalPages:
+          type: integer
+          format: int32
+        pageImageUrl:
+          type: string
+        sentences:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookSentenceSummary'
+    BookSentenceSummary:
+      type: object
+      properties:
+        sentenceId:
+          type: integer
+          format: int64
+        orderIndex:
+          type: integer
+          format: int32
+        text:
+          type: string
+        stuck:
+          type: boolean
+    BookCompletionSummary:
+      type: object
+      properties:
+        bookId:
+          type: integer
+          format: int64
+        resolvedStuckSentenceCount:
+          type: integer
+          format: int32
+        totalStuckSentenceCount:
+          type: integer
+          format: int32
+        progress:
+          $ref: '#/components/schemas/ProgressResponse'
