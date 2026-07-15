@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 public class SimplifyController {
 
     private final SimplifyService simplifyService;
@@ -20,9 +20,11 @@ public class SimplifyController {
 
     /**
      * A모드: 사진/PDF 이미지를 업로드하면 쉬운 문장 + 낭독 음성 + 하이라이트 타임스탬프를 반환.
+     * 생성된 sessionId는 이후 /api/v1/sessions/{id}/explain(드래그 설명)에 사용.
      */
     @PostMapping(value = "/simplify", consumes = "multipart/form-data")
-    public SimplifyResponse simplify(@RequestParam("file") MultipartFile file) {
-        return simplifyService.process(file);
+    public SimplifyResponse simplify(@RequestParam("childId") Long childId,
+                                      @RequestParam("file") MultipartFile file) {
+        return simplifyService.process(childId, file);
     }
 }

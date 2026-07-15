@@ -1,16 +1,33 @@
 package com.dobak.backend.service;
 
+import com.dobak.backend.dto.DiagnosisAnswer;
 import com.dobak.backend.dto.DiagnosisQuestion;
 import com.dobak.backend.dto.DiagnosisResult;
 import com.dobak.backend.dto.DiagnosisSubmitRequest;
-import com.dobak.backend.dto.ReadingScoreResponse;
+import com.dobak.backend.entity.ErrorPattern;
+import com.dobak.backend.entity.User;
+import com.dobak.backend.inference.InferenceClient;
+import com.dobak.backend.inference.dto.ErrorTypeAnalysisResult;
+import com.dobak.backend.repository.ErrorPatternRepository;
+import com.dobak.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 @Service
 public class DiagnosisService {
+
+    private final InferenceClient inferenceClient;
+    private final ErrorPatternRepository errorPatternRepository;
+    private final UserRepository userRepository;
+
+    public DiagnosisService(InferenceClient inferenceClient,
+                             ErrorPatternRepository errorPatternRepository,
+                             UserRepository userRepository) {
+        this.inferenceClient = inferenceClient;
+        this.errorPatternRepository = errorPatternRepository;
+        this.userRepository = userRepository;
+    }
 
     // TODO: 실제 진단 문항으로 교체 (음운/시각/글자뒤집힘 등 오류유형 판별용 5문항)
     public List<DiagnosisQuestion> getQuestions() {
@@ -23,21 +40,23 @@ public class DiagnosisService {
         );
     }
 
-    // TODO(AI팀 연동): 답변 패턴 분석 -> 오류 유형 분류 로직/모델 호출
+    /**
+     * 진단 답변 제출 -> Inference Server(오류유형분석)에 답변 텍스트를 넘겨 오류유형을 받고,
+     * 그 아이의 ErrorPattern(공통분모)을 누적/갱신한다.
+     */
     public DiagnosisResult submit(DiagnosisSubmitRequest request) {
-        return new DiagnosisResult(
-                "phonological",
-                "음운 처리에 어려움이 관찰됩니다. 음운 인식 훈련부터 시작하는 것을 권장해요.",
-                "level_1"
-        );
-    }
+        User child = userRepository.findById(request.childId())
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 아이 계정: " + request.childId()));
 
-    // TODO(AI팀 연동): STT로 음성 -> 텍스트 변환 후 정답과 비교, 오독 단어 추출
-    public ReadingScoreResponse scoreReading(MultipartFile audio) {
-        return new ReadingScoreResponse(
-                0.82,
-                List.of("나비", "구름"),
-                "전반적으로 잘 읽었어요! '나비'와 '구름' 발음을 다시 연습해봐요."
-        );
+        List<String> answerTexts = request.answers().stream().map(DiagnosisAnswer::answer).toList();
+        ErrorTypeAnalysisResult analysis = inferenceClient.analyzeErrorType(answerTexts);
+
+        ErrorPattern pattern = errorPatternRepository
+                .findByChildIdAndErrorType(child.getId(), analysis.errorType())
+                .orElseGet(() -> new ErrorPattern(child, analysis.errorType(), 0));
+        pattern.incrementOccurrence();
+        errorPatternRepository.save(pattern);
+
+        return new DiagnosisResult(analysis.errorType(), analysis.description(), "level_1");
     }
 }

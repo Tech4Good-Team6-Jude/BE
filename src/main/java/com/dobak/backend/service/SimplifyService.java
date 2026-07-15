@@ -1,41 +1,51 @@
 package com.dobak.backend.service;
 
 import com.dobak.backend.dto.SimplifyResponse;
-import com.dobak.backend.dto.WordTimestamp;
+import com.dobak.backend.entity.ReadingSession;
+import com.dobak.backend.entity.User;
+import com.dobak.backend.inference.InferenceClient;
+import com.dobak.backend.inference.dto.TtsResult;
+import com.dobak.backend.repository.ReadingSessionRepository;
+import com.dobak.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @Service
 public class SimplifyService {
 
-    /**
-     * A모드 핵심 파이프라인.
-     * TODO(AI팀 연동 지점):
-     *   1) OCR: file -> originalText          (Vision API 등)
-     *   2) LLM 재작성: originalText -> simplifiedText
-     *   3) TTS: simplifiedText -> audioUrl + word-level timestamps
-     * 지금은 FE가 먼저 화면을 붙일 수 있도록 mock 데이터를 반환한다.
-     * AI팀 결과물이 준비되면 이 메서드 내부만 실제 호출로 교체하면 됨
-     * (컨트롤러/DTO 계약은 그대로 유지).
-     */
-    public SimplifyResponse process(MultipartFile file) {
-        String originalText = "원본 텍스트 (OCR 결과가 들어올 자리)";
-        String simplifiedText = "쉬운 문장으로 바뀐 텍스트입니다.";
+    private final InferenceClient inferenceClient;
+    private final ReadingSessionRepository readingSessionRepository;
+    private final UserRepository userRepository;
 
-        List<WordTimestamp> words = List.of(
-                new WordTimestamp("쉬운", 0, 400),
-                new WordTimestamp("문장으로", 400, 900),
-                new WordTimestamp("바뀐", 900, 1200),
-                new WordTimestamp("텍스트입니다.", 1200, 1800)
-        );
+    public SimplifyService(InferenceClient inferenceClient,
+                            ReadingSessionRepository readingSessionRepository,
+                            UserRepository userRepository) {
+        this.inferenceClient = inferenceClient;
+        this.readingSessionRepository = readingSessionRepository;
+        this.userRepository = userRepository;
+    }
+
+    /**
+     * A모드 핵심 파이프라인: OCR -> 문장단순화 -> TTS 순으로 Inference Server를 호출하고
+     * 결과를 ReadingSession으로 저장한다. (지금은 InferenceClient가 mock 응답을 줌)
+     */
+    public SimplifyResponse process(Long childId, MultipartFile file) {
+        User child = userRepository.findById(childId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 아이 계정: " + childId));
+
+        String originalText = inferenceClient.ocr(file);
+        String simplifiedText = inferenceClient.simplify(originalText);
+        TtsResult ttsResult = inferenceClient.tts(simplifiedText);
+
+        ReadingSession session = new ReadingSession(child, originalText, simplifiedText, ttsResult.audioUrl());
+        readingSessionRepository.save(session);
 
         return new SimplifyResponse(
+                session.getId(),
                 originalText,
                 simplifiedText,
-                "https://example.com/mock-audio.mp3",
-                words
+                ttsResult.audioUrl(),
+                ttsResult.words()
         );
     }
 }

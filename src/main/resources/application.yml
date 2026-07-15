@@ -8,8 +8,31 @@ spring:
     multipart:
       max-file-size: 20MB
       max-request-size: 20MB
+  datasource:
+    url: jdbc:h2:file:./data/dobak;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
 
-# AI팀 서비스가 별도 서버로 뜨면 여기에 주소를 넣고 서비스단에서 RestClient로 호출
-ai:
+# 파일 저장 (해커톤 단계: 로컬 디스크. 추후 S3 등으로 교체 가능)
+file:
+  storage:
+    base-path: ./uploads
+
+# 멘토님 구조 기준: 우리 서버(Service Server, /api/v1)가 별도 Inference Server(/internal/v1)를
+# HTTP로 호출하는 구조. AI팀 서버 주소/실제 계약이 확정되면 아래 base-url만 바꾸면 됨.
+# 지금은 InferenceClient가 MockInferenceClient로 동작해서 이 값은 아직 안 쓰임.
+inference:
   service:
-    base-url: http://localhost:9000 # TODO: AI팀 서비스 주소로 교체
+    base-url: http://localhost:9000 # TODO: AI팀 Inference Server 주소로 교체

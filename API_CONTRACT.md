@@ -1,119 +1,175 @@
-# 또박또박 API 계약 (초안)
+# 또박또박 API 계약
 
 Base URL: `http://localhost:8080`
 
-현재 모든 엔드포인트는 **mock 데이터**를 반환합니다. AI팀 파이프라인이 준비되는 대로
-`SimplifyService` / `DiagnosisService` 내부 로직만 교체되고, 아래 요청/응답 형식(계약)은
-그대로 유지될 예정이니 FE는 지금 바로 붙어서 개발하면 됩니다.
+## 전체 구조 (멘토 피드백 반영)
+
+```
+Service Server: /api/v1   (이 레포, 우리가 만드는 것)
+  ├─ 사용자·세션·진단·학습·리포트 DB
+  ├─ 파일 저장소 (녹음/이미지)
+  └─ Inference Server 호출: /internal/v1  (AI팀 서버)
+         ├─ OCR
+         ├─ STT
+         ├─ TTS
+         ├─ 문장 단순화 LLM
+         ├─ 오류 유형 분석
+         └─ 발음·유창성 평가
+```
+
+현재 `InferenceClient`는 `MockInferenceClient`로 동작해서 위 6개 기능 모두 mock 데이터를 반환합니다.
+AI팀 서버(`/internal/v1`) 계약이 확정되면 `InferenceClient`의 새 구현체(HTTP 호출)로 갈아끼울 예정이고,
+이 문서의 `/api/v1/*` 엔드포인트 계약 자체는 바뀌지 않으므로 FE는 지금 바로 붙어서 개발하면 됩니다.
 
 ---
 
-## 공통
+## 인증 (간이 버전, 해커톤용)
 
-### GET /api/health
-서버 상태 확인용.
+### POST /api/v1/auth/signup
+```json
+{ "email": "child1@test.com", "password": "1234", "name": "민준", "role": "CHILD" }
+```
+`role`: `CHILD` | `GUARDIAN`
 
-응답: `"ok"` (200)
+응답: `{ "userId": 1, "name": "민준", "role": "CHILD" }`
+
+### POST /api/v1/auth/login
+```json
+{ "email": "child1@test.com", "password": "1234" }
+```
+응답은 signup과 동일한 형태. 별도 토큰 없이 `userId`를 클라이언트가 들고 있다가 이후 요청에 실어보내는 방식(보안 강화는 TODO).
+
+### POST /api/v1/auth/link
+보호자 계정과 아이 계정 연결.
+```json
+{ "guardianId": 2, "childId": 1 }
+```
 
 ---
 
 ## A모드 — 즉시 보조 모드
 
-### POST /api/simplify
-사진/PDF 이미지를 업로드하면 쉬운 문장 + 낭독 음성 + 하이라이트용 타임스탬프를 반환.
+### POST /api/v1/simplify
+사진/PDF 업로드 -> 쉬운 문장 + 낭독 음성 + 하이라이트 타임스탬프. `ReadingSession`으로 저장됨.
 
 **요청**: `multipart/form-data`
-| key | type | 설명 |
-|---|---|---|
-| file | file | 업로드한 이미지/PDF |
+| key | type |
+|---|---|
+| childId | number |
+| file | file |
 
-**응답 (200)**
+**응답**
 ```json
 {
-  "originalText": "OCR로 추출된 원본 텍스트",
+  "sessionId": 10,
+  "originalText": "OCR 원본 텍스트",
   "simplifiedText": "쉬운 문장으로 바뀐 텍스트입니다.",
   "audioUrl": "https://example.com/mock-audio.mp3",
   "words": [
-    { "word": "쉬운", "startMs": 0, "endMs": 400 },
-    { "word": "문장으로", "startMs": 400, "endMs": 900 },
-    { "word": "바뀐", "startMs": 900, "endMs": 1200 },
-    { "word": "텍스트입니다.", "startMs": 1200, "endMs": 1800 }
+    { "word": "쉬운", "startMs": 0, "endMs": 400 }
   ]
 }
 ```
 
-FE는 `words` 배열의 `startMs`/`endMs`와 오디오 재생 시간을 비교해서 현재 읽는 단어를
-하이라이트하면 됨 (노래방식).
-
----
-
-## B모드 — 적응형 훈련 모드 (해커톤 MVP: 얇게 구현)
-
-### GET /api/diagnose/questions
-3분 진단용 문항 5개 조회.
-
-**응답 (200)**
-```json
-[
-  { "id": 1, "prompt": "다음 단어를 소리내어 읽어보세요: 나비", "type": "read_aloud" },
-  { "id": 2, "prompt": "...", "type": "phoneme_match" },
-  { "id": 3, "prompt": "...", "type": "visual_span" },
-  { "id": 4, "prompt": "...", "type": "comprehension" },
-  { "id": 5, "prompt": "...", "type": "letter_reversal" }
-]
-```
-
-### POST /api/diagnose/submit
-진단 답변 제출 -> 오류 유형 분류 결과.
+### POST /api/v1/sessions/{sessionId}/explain
+읽던 중 드래그로 선택한 부분을 쉬운 문장으로 재설명 + TTS. `UnknownWordQuery`로 저장되어
+오류 유형(공통분모) 분석의 재료가 됨.
 
 **요청**
 ```json
-{
-  "answers": [
-    { "questionId": 1, "answer": "..." },
-    { "questionId": 2, "answer": "..." }
-  ]
-}
+{ "selectedText": "모르는 단어나 문장" }
 ```
-
-**응답 (200)**
+**응답**
 ```json
 {
-  "errorType": "phonological",
-  "description": "음운 처리에 어려움이 관찰됩니다. 음운 인식 훈련부터 시작하는 것을 권장해요.",
-  "recommendedLevel": "level_1"
+  "queryId": 5,
+  "selectedText": "모르는 단어나 문장",
+  "explanation": "쉽게 설명한 문장",
+  "audioUrl": "https://example.com/mock-audio.mp3"
 }
 ```
-`errorType`: `phonological` | `visual` | `letter_reversal` 등 (AI팀과 확정 필요)
 
-### POST /api/diagnose/reading-score
-소리내어 읽기 녹음 제출 -> STT 채점/피드백.
+---
+
+## B모드 — 적응형 훈련 모드
+
+### GET /api/v1/diagnose/questions
+3분 진단용 문항 5개 조회.
+
+### POST /api/v1/diagnose/submit
+```json
+{
+  "childId": 1,
+  "answers": [{ "questionId": 1, "answer": "..." }]
+}
+```
+응답: `{ "errorType": "phonological", "description": "...", "recommendedLevel": "level_1" }`
+→ 내부적으로 `ErrorPattern`에 누적됨.
+
+### POST /api/v1/practice/attempts
+발음 연습(듀오링고식 따라읽기) 녹음 제출. 정확도 80% 이상이면 포도알 자동 지급.
 
 **요청**: `multipart/form-data`
 | key | type | 설명 |
 |---|---|---|
+| childId | number | |
+| targetText | string | 읽어야 할 목표 문장 |
 | audio | file | 녹음 파일 |
+| compareToAttemptId | number (optional) | 이전 시도와 비교 |
 
-**응답 (200)**
+**응답**
 ```json
 {
+  "attemptId": 7,
+  "sttText": "나비 구룸 하늘",
   "accuracy": 0.82,
-  "misreadWords": ["나비", "구름"],
-  "feedback": "전반적으로 잘 읽었어요! '나비'와 '구름' 발음을 다시 연습해봐요."
+  "misreadWords": ["구름"],
+  "feedback": "전반적으로 잘 읽었어요! 구름 발음을 다시 연습해봐요."
 }
+```
+
+---
+
+## 보호자용
+
+### GET /api/v1/children/{childId}/report
+최근 7일 발음 연습 이력 + 오류 유형 요약 리포트.
+
+```json
+{
+  "reportId": 3,
+  "periodStart": "2026-07-08T00:00:00",
+  "periodEnd": "2026-07-15T00:00:00",
+  "summary": "이번 주 4회 발음 연습, 평균 정확도 82%. 가장 자주 나타난 오류 유형: phonological.",
+  "attempts": [{ "attemptId": 7, "targetText": "...", "accuracy": 0.82, "createdAt": "..." }],
+  "errorPatterns": [{ "errorType": "phonological", "occurrenceCount": 3 }]
+}
+```
+
+### GET /api/v1/children/{childId}/progress
+포도알 현황. `POST .../progress/grape`로 수동 지급도 가능(테스트용).
+
+```json
+{ "grapeCount": 23, "currentBunchCount": 3, "totalBunchesCompleted": 2, "grapesPerBunch": 10 }
 ```
 
 ---
 
 ## AI팀에게
 
-이 문서의 엔드포인트/응답 필드는 초안입니다. 각 파이프라인(OCR/LLM재작성/TTS/STT/오류유형분류)의
-실제 입출력 형태가 정해지면 알려주세요 — 백엔드 서비스 레이어(`SimplifyService`,
-`DiagnosisService`)에 그대로 반영해서 FE에는 동일한 계약을 유지한 채 실제 데이터로 교체합니다.
+`/internal/v1`에 아래 6개 기능이 필요합니다. 실제 엔드포인트 경로/요청·응답 형식이 정해지면
+`InferenceClient` 구현체만 교체할 예정이니 알려주세요.
 
-특히 TTS 쪽은 **단어별 타임스탬프(word-level timing)를 반환하는 API인지 먼저 확인**해주세요
-(Google Cloud TTS, Azure Speech는 지원; OpenAI TTS는 미지원). 이게 A모드 하이라이트 기능의
-핵심 전제라 API 선택에 따라 계약이 바뀔 수 있습니다.
+| 기능 | 현재 Mock 인터페이스 |
+|---|---|
+| OCR | `ocr(MultipartFile file) -> String` |
+| 문장 단순화 | `simplify(String originalText) -> String` |
+| TTS | `tts(String text) -> { audioUrl, words[{word,startMs,endMs}] }` |
+| STT | `stt(MultipartFile audioFile) -> String` |
+| 오류 유형 분석 | `analyzeErrorType(List<String> texts) -> { errorType, description }` |
+| 발음·유창성 평가 | `evaluatePronunciation(MultipartFile audio, String targetText) -> { sttText, accuracy, misreadWords[] }` |
+
+**특히 TTS는 word-level timestamp 지원 여부부터 확인 필요** (A모드 하이라이트의 전제조건).
 
 ## FE팀에게
 
