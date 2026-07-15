@@ -1,0 +1,15 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: dobak-backend
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+# AI팀 서비스가 별도 서버로 뜨면 여기에 주소를 넣고 서비스단에서 RestClient로 호출
+ai:
+  service:
+    base-url: http://localhost:9000 # TODO: AI팀 서비스 주소로 교체
