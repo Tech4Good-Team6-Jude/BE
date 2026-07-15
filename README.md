@@ -1,0 +1,2 @@
+# BE
+TECH4GOOD HACKATON 6조 BE 레포지토리입니다.
