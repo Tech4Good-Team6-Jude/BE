@@ -49,12 +49,26 @@ public class HttpInferenceClient implements InferenceClient {
 
     private final RestClient restClient;
     private final MockInferenceClient fallback;
+    /** AI 서버가 audio_url을 자기 host 기준 상대경로("/internal/v1/...")로 내려주기 때문에,
+     * 프론트가 그대로 재생할 수 있는 절대 URL로 만들어주기 위해 필요한 origin(scheme+host+port). */
+    private final String aiServerOrigin;
 
     public HttpInferenceClient(RestClient.Builder restClientBuilder,
                                 @Value("${inference.service.base-url}") String baseUrl,
                                 MockInferenceClient fallback) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
         this.fallback = fallback;
+        java.net.URI parsed = java.net.URI.create(baseUrl);
+        this.aiServerOrigin = parsed.getScheme() + "://" + parsed.getAuthority();
+    }
+
+    /** AI 서버가 내려주는 audio_url이 "/internal/v1/..." 같은 host-상대경로이면 AI 서버 origin을 붙여
+     * 절대 URL로 만든다. 이미 절대 URL(http/https로 시작)이면 그대로 둔다. */
+    private String resolveAudioUrl(String audioUrl) {
+        if (audioUrl == null || audioUrl.isBlank() || audioUrl.startsWith("http://") || audioUrl.startsWith("https://")) {
+            return audioUrl;
+        }
+        return aiServerOrigin + audioUrl;
     }
 
     @Override
@@ -117,7 +131,7 @@ public class HttpInferenceClient implements InferenceClient {
                 : response.timings().stream()
                         .map(t -> new WordTimestamp(t.text(), t.startMs(), t.endMs()))
                         .toList();
-        return new TtsResult(response.audioUrl(), words);
+        return new TtsResult(resolveAudioUrl(response.audioUrl()), words);
     }
 
     @Override
